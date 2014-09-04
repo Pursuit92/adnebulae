@@ -1,0 +1,12 @@
+[main]
+# files = "files" # files needed for adnebulae to run - shouldn't be changing much
+# conf = "conf" # config directory. filepaths will be relative to this
+
+[openstack]
+auth-url = "http://cloudman.cecsresearch.org:5000/v2.0"
+
+[chef]
+server-url = "https://216.249.138.190:443"
+# validator-key = "validation.pem"
+# validator-name = "chef-validator"
+# client-config = "client.rb.templ"
