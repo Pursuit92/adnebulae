@@ -10,13 +10,18 @@ import (
 
 func readTemplates(dir string) (*template.Template,error) {
 	t := template.New("top")
+	//t.Delims("=%","%=")
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if info != nil &&
 		! info.IsDir() &&
 		filepath.Base(path)[0] != '.' &&
 		err == nil {
-			_,err := t.ParseFiles(path)
-			return err
+			name := filepath.Base(path)
+			if name[len(name)-5:] == ".tmpl" {
+				_,err := t.ParseFiles(path)
+				return err
+			}
+			return nil
 		}
 		return nil
 	})

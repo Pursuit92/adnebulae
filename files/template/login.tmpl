@@ -1,21 +1,26 @@
 {{ define "login" }}
 {{ template "top" }}
 
-<title>Signin Template for Bootstrap</title>
-
-{{ template "commoncss" }}
+<title>AdNebulae Login</title>
 
 <link href="/static/css/signin.css" rel="stylesheet">
 
 {{ template "start" }}
 
-<form action="/auth" method="POST" class="form-signin" role="form">
-<h2 class="form-signin-heading">Please sign in</h2>
+
+<form action="/api/auth" method="POST" class="form-signin" role="form">
+{{ if .AuthFailed }}
+<div class="alert alert-danger" role="alert">
+Login failed!
+</div>
+{{ end }}
+<h2 class="form-signin-heading">Please log in</h2>
 <input type="text" class="form-control" name="user" placeholder="Username" required autofocus>
 <input type="password" class="form-control" name="password" placeholder="Password" required>
 <button class="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>
 </form>
 
+{{ template "end" }}
 {{ template "bottom" }}
 
 {{ end }}

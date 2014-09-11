@@ -1,0 +1,51 @@
+{{ define "instheaders" }}
+				<th>Name</th>
+				<th>Status</th>
+				<th>Image</th>
+				<th>Flavor</th>
+				<th>Addresses</th>
+				<th>Keypair</th>
+{{ end }}
+{{ define "instmenu" }}
+		<li><a href="#">Do</a></li>
+		<li><a href="#">Instance</a></li>
+		<li><a href="#">Stuff</a></li>
+		<li class="divider"></li>
+		<li><a href="#">Separated link</a></li>
+{{ end }}
+{{ define "instdata" }}
+		{{ $cl := .OSC }}
+		{{ $imgs := $cl.ImagesDetail }}
+		{{ $flavs := $cl.FlavorsDetail }}
+		{{ range $srv := $cl.ServersDetail }}
+		<tr>
+			<td>{{ .Name }}</td>
+			<td>{{.Status}}</td>
+			<td>
+				{{ range $img := $imgs }}
+				{{ if eq $img.Id $srv.Image.Id }}
+				<a href="http://google.com">{{$img.Name}}</a>
+				{{ end }}
+				{{ end }}
+			</td>
+			<td>
+				{{ range $flav := $flavs }}
+				{{ if eq $flav.Id $srv.Flavor.Id }}
+				{{$flav.Name}}
+				{{ end }}
+				{{ end }}
+			</td>
+			<td>
+				{{ range $k, $v := .Addresses }}
+				{{ if $v }}
+				<b>{{ $k }}</b><br>
+				{{ range $v }}
+				{{ .Addr }}<br>
+				{{ end }}
+				{{ end }}
+				{{ end }}
+			</td>
+			<td>{{.KeyName}}</td>
+		</tr>
+		{{ end }}
+{{ end }}

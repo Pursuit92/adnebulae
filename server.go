@@ -15,6 +15,7 @@ type Server struct {
 	Config   *Config
 	Handler http.Handler
 	Sessions map[string]*Session
+	SessionTimeout int
 	store *sessions.CookieStore
 	m *sync.Mutex
 	templates *template.Template
@@ -39,6 +40,7 @@ func NewServer(configPath string) (*Server,error) {
 	if err != nil {
 		return nil,err
 	}
+	an.SessionTimeout = 300
 
 	return an,nil
 }

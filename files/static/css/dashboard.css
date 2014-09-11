@@ -103,3 +103,19 @@ body {
   display: inline-block;
   border-radius: 50%;
 }
+
+#selectable .ui-selecting {
+	background: #EEE;
+}
+#selectable .ui-selected {
+	background: #428BCA;
+	color: white;
+}
+#selectable  a {
+	text-decoration: underline;
+	color: black;
+}
+
+.page-header {
+	text-transform: capitalize;
+}

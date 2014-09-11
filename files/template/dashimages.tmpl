@@ -1,0 +1,19 @@
+{{ define "imageheaders" }}
+				<th>Name</th>
+{{ end }}
+{{ define "imagemenu" }}
+		<li><a href="#">Do</a></li>
+		<li><a href="#">Image</a></li>
+		<li><a href="#">Stuff</a></li>
+		<li class="divider"></li>
+		<li><a href="#">Separated link</a></li>
+{{ end }}
+{{ define "imagedata" }}
+		{{ $cl := .OSC }}
+		{{ $imgs := $cl.ImagesDetail }}
+		{{ range $img := $imgs }}
+		<tr>
+			<td>{{ .Name }}</td>
+		</tr>
+		{{ end }}
+{{ end }}

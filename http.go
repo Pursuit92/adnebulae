@@ -1,6 +1,7 @@
 package adnebulae
 
 import (
+	"time"
 	"log"
 	"path/filepath"
 	"net/http"
@@ -15,61 +16,58 @@ var (
 
 
 type Session struct {
+	Id string
 	OSC *nova.ComputeClient
 	Authenticated bool
 	AuthFailed bool
-	Page string
-	Path string
+	Last string
+	Current string
 	Error	error
+	Renew chan bool
+}
+
+func (sess Session) Page() string {
+	return filepath.Base(sess.Current)
 }
 
 func (s *Server) setupHttp() {
 	r := mux.NewRouter()
-	r.HandleFunc("/",s.requireAuthFunc(s.handleHome))
-	r.HandleFunc("/login",s.loginPage)
-	r.HandleFunc("/auth",s.handleAuth)
 
-	dashroute := r.PathPrefix("/dashboard").Subrouter()
-	dashroute.HandleFunc("/{page}",s.requireAuthFunc(s.handleDash))
-	dashroute.HandleFunc("/",s.requireAuthFunc(s.handleDash))
+	r.
+		PathPrefix("/login").
+		Methods("GET").
+		HandlerFunc(s.loginPage)
+
+	r.
+		PathPrefix("/dashboard/{page}").
+		Methods("GET").
+		HandlerFunc(s.requireAuthFunc(s.handleDash))
+	r.
+		PathPrefix("/dashboard").
+		Methods("GET").
+		HandlerFunc(s.requireAuthFunc(s.handleDash))
+
+	s.setupApi(r.PathPrefix("/api").Subrouter())
 
 	staticFiles := filepath.Join(s.Config.Main.Files,"static")
 
 	r.PathPrefix("/static/").Handler(
 		http.StripPrefix("/static/",http.FileServer(http.Dir(staticFiles))))
+	r.PathPrefix("/assets/").HandlerFunc(
+		func(w http.ResponseWriter,r *http.Request){})
+
+	r.PathPrefix("/").HandlerFunc(s.requireAuthFunc(s.handleHome))
 
 	s.Handler = logger(r)
-}
-
-func (s *Server) handleAuth(w http.ResponseWriter,r *http.Request) {
-	sess := s.getSession(r,w)
-	user := r.FormValue("user")
-	pass := r.FormValue("password")
-	osc := sess.OSC
-	osc.PasswordAuth(user,pass)
-	err := osc.Authenticate()
-	if err != nil {
-		sess.AuthFailed = true
-		if err.Error()[:3] == "401" {
-			sess.Error = ErrInvalidCreds
-		} else {
-			sess.Error = err
-		}
-		http.Redirect(w,r,"/login",http.StatusFound)
-	} else {
-		sess.Authenticated = true
-		http.Redirect(w,r,"/dashboard/",http.StatusFound)
-	}
 }
 
 func (s *Server) handleDash(w http.ResponseWriter,r *http.Request) {
 	sess := s.getSession(r,w)
 	vars := mux.Vars(r)
-	sess.Path = "/dashboard/"
-	if page,ok := vars["page"]; ok {
-		sess.Page = page
+	if _,ok := vars["page"]; ok {
+		sess.Current = r.URL.Path
 	} else {
-		http.Redirect(w,r,"overview",http.StatusFound)
+		http.Redirect(w,r,"/dashboard/instances",http.StatusFound)
 	}
 	err := s.renderTemplate(w,"dashboard",sess)
 	if err != nil {
@@ -81,7 +79,7 @@ func (s *Server) handleDash(w http.ResponseWriter,r *http.Request) {
 func (s *Server) loginPage(w http.ResponseWriter,r *http.Request) {
 	sess := s.getSession(r,w)
 	if sess.Authenticated {
-		http.Redirect(w,r,sess.Path+sess.Page,http.StatusFound)
+		http.Redirect(w,r,sess.Current,http.StatusFound)
 	} else {
 		err := s.renderTemplate(w,"login",sess)
 		if err != nil {
@@ -94,8 +92,7 @@ func (s *Server) loginPage(w http.ResponseWriter,r *http.Request) {
 }
 
 func (s *Server) handleHome(w http.ResponseWriter,r *http.Request) {
-	sess := s.getSession(r,w)
-	http.Redirect(w,r,sess.Path+sess.Page,http.StatusFound)
+	http.Redirect(w,r,"/dashboard",http.StatusFound)
 }
 
 func (s *Server) getSession(r *http.Request,w http.ResponseWriter) (*Session) {
@@ -106,8 +103,6 @@ func (s *Server) getSession(r *http.Request,w http.ResponseWriter) (*Session) {
 	if sess.IsNew  {
 		id = uuidgen()
 		sess.Values["id"] = id
-		anSess := s.newSession()
-		s.Sessions[id] = anSess
 		err := sess.Save(r,w)
 		if err != nil {
 			log.Print("Error: ",err)
@@ -115,23 +110,45 @@ func (s *Server) getSession(r *http.Request,w http.ResponseWriter) (*Session) {
 	} else {
 		id = sess.Values["id"].(string)
 	}
-	return s.Sessions[id]
+	ret,ok := s.Sessions[id]
+	if ! ok {
+		anSess := s.newSession()
+		anSess.Id = id
+		s.Sessions[id] = anSess
+		ret = anSess
+	}
+	ret.Renew <- true
+	return ret
 
 }
 
 func (s *Server) newSession() *Session {
 	sess := &Session{}
-	sess.OSC,_ = nova.NewClient(s.Config.Openstack.AuthUrl)
+	sess.Renew = make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-time.After(time.Duration(s.SessionTimeout) * time.Second):
+				s.m.Lock()
+				delete(s.Sessions,sess.Id)
+				s.m.Unlock()
+				return
+			case <-sess.Renew:
+				continue
+			}
+		}
+	}()
 	return sess
 }
 
-func (s *Server) renderTemplate(w http.ResponseWriter, file string, sess *Session) error {
-	return s.templates.ExecuteTemplate(w,file,sess)
+func (s *Server) renderTemplate(w http.ResponseWriter, tmpl string, sess *Session) error {
+	return s.templates.ExecuteTemplate(w,tmpl,sess)
 }
 
 func (s *Server) requireAuthFunc(f func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sess := s.getSession(r,w)
+		sess.Last = r.URL.Path
 		if sess.Authenticated {
 			f(w,r)
 		} else {
