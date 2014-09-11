@@ -1,28 +1,6 @@
 {{ define "dashtables" }}
-<div id="actions" style="display: none">
-<div class="btn-group">
-	<button type="button" class="btn btn-primary">Action</button>
-	<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown">
-		<span class="caret"></span>
-		<span class="sr-only">Toggle Dropdown</span>
-	</button>
-	<ul class="dropdown-menu" role="menu">
-		{{ if eq .Page "images" }}
-			{{ template "imagemenu" }}
-		{{ else if eq .Page "instances" }}
-			{{ template "instmenu" }}
-		{{ end }}
-	</ul>
-</div>
-</div>
-<div class="row">
-	<div class="col-md-10">
-		<h1 class="page-header">{{ .Page }}</h1>
-	</div>
-	<div class="col-md-2">
-	</div>
-</div>
-	<table id="dataTable" class="table compact">
+	{{ template "tablehelper" . }}
+	<table class="display table compact dataTable">
 		<thead>
 			<tr>
 			{{ if eq .Page "images" }}
@@ -41,25 +19,48 @@
 			{{ end }}
 		</tbody>
 	</table>
-<script>
-window.jqReady = function() {
-	var table = $('#dataTable').dataTable({
-		//paging: false,
-		"dom": '<"row"<"col-md-6"l><"col-md-4"f><"col-md-2"<"topbar">>><"row"r><"row"t><"row"<"col-md-2"<"botbar">><"col-md-4"i><"col-md-6"p>>',
-	} );
-	//new $.fn.dataTable.FixedHeader( table );
-	console.log(table["dom"])
+{{ end }}
+{{ define "tablehelper" }}
+	<div id="actions" style="display: none">
+		<div class="btn-group">
+			<button type="button" class="btn btn-primary">Action</button>
+			<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown">
+				<span class="caret"></span>
+				<span class="sr-only">Toggle Dropdown</span>
+			</button>
+			<ul class="dropdown-menu" role="menu">
+				{{ if eq .Page "images" }}
+					{{ template "imagemenu" }}
+				{{ else if eq .Page "instances" }}
+					{{ template "instmenu" }}
+				{{ end }}
+			</ul>
+		</div>
+	</div>
+	<script>
+	window.jqReady.push(function() {
+		selections = {};
+		var table = $('.dataTable').dataTable({
+			//paging: false,
+			"dom": '<"row"<"col-md-6"l><"col-md-4"f><"col-md-2"<"topbar">>><"row"r><"row"t><"row"<"col-md-2"<"botbar">><"col-md-4"i><"col-md-6"p>>',
+		} );
 
+		var btn = $( "#actions" );
 
-	var btn = $( "#actions" );
+		$("div.topbar").html(btn[0].innerHTML);
 
-	$("div.topbar").html(btn[0].innerHTML);
-	var bot = $("div.botbar").html(btn[0].innerHTML);
-	var botbut = bot[0].firstElementChild;
-	botbut.classList.add("dropup");
-	$('#dataTable tbody').on( 'click', 'tr', function () {
-		$(this).toggleClass('selected');
-	} );
-};
-</script>
+		var bot = $("div.botbar").html(btn[0].innerHTML);
+
+		$("div.botbar div").addClass("dropup");
+
+		$('.dataTable tbody').on( 'click', 'tr', function () {
+			if($(this).hasClass('selected')) {
+				delete(selections[this.id]);
+			} else {
+				selections[this.id] = true;
+			}
+			$(this).toggleClass('selected');
+		} );
+	});
+	</script>
 {{ end }}

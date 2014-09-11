@@ -17,7 +17,9 @@
 $(document).ready(function() {
 if (window.hasOwnProperty('jqReady'))
 $(function() {
-		window.jqReady();
+		for(fun in window.jqReady){
+			window.jqReady[fun]();
+		}
 	});
 });
 </script>

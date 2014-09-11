@@ -1,5 +1,8 @@
 {{ define "imageheaders" }}
 				<th>Name</th>
+				<th>Status</th>
+				<th>Min Disk</th>
+				<th>Min Ram</th>
 {{ end }}
 {{ define "imagemenu" }}
 		<li><a href="#">Do</a></li>
@@ -12,8 +15,11 @@
 		{{ $cl := .OSC }}
 		{{ $imgs := $cl.ImagesDetail }}
 		{{ range $img := $imgs }}
-		<tr>
+		<tr id="{{ .Id }}">
 			<td>{{ .Name }}</td>
+			<td>{{ .Status }}</td>
+			<td>{{ .MinDisk }}</td>
+			<td>{{ .MinRam }}</td>
 		</tr>
 		{{ end }}
 {{ end }}
