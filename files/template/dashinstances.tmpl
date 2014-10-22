@@ -7,11 +7,11 @@
 				<th>Keypair</th>
 {{ end }}
 {{ define "instmenu" }}
-		<li><a href="#">Do</a></li>
-		<li><a href="#">Instance</a></li>
-		<li><a href="#">Stuff</a></li>
+		<li><a href="#">Create</a></li>
 		<li class="divider"></li>
-		<li><a href="#">Separated link</a></li>
+		<li><a class="deleteAct" href="#">Delete</a></li>
+		<li><a class="startAct"  href="#">Start</a></li>
+		<li><a class="stopAct"   href="#">Stop</a></li>
 {{ end }}
 {{ define "instdata" }}
 		{{ $cl := .OSC }}

@@ -1,49 +1,117 @@
 {{ define "dashtables" }}
-	{{ template "tablehelper" . }}
-	<table class="display table compact dataTable">
-		<thead>
-			<tr>
+{{ template "tablehelper" . }}
+<div id="notify" class="alert" role="alert" hidden="hidden">
+<button id="notifyclose" type="button" class="close"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
+<div id="notifytext"></div>
+</div>
+<table id="data" class="display table compact dataTable">
+	<thead>
+		<tr>
 			{{ if eq .Page "images" }}
-				{{ template "imageheaders" }}
+			{{ template "imageheaders" }}
 			{{ else if eq .Page "instances" }}
-				{{ template "instheaders" }}
+			{{ template "instheaders" }}
 			{{ end }}
-			</tr>
-		</thead>
+		</tr>
+	</thead>
 
-		<tbody id="selectable">
-			{{ if eq .Page "images" }}
-				{{ template "imagedata" . }}
-			{{ else if eq .Page "instances" }}
-				{{ template "instdata" . }}
-			{{ end }}
-		</tbody>
-	</table>
+	<tbody id="selectable">
+	{{ if eq .Page "images" }}
+	{{ template "imagedata" . }}
+	{{ else if eq .Page "instances" }}
+	{{ template "instdata" . }}
+	{{ end }}
+	</tbody>
+</table>
 {{ end }}
 {{ define "tablehelper" }}
-	<div id="actions" style="display: none">
-		<div class="btn-group">
-			<button type="button" class="btn btn-primary">Action</button>
-			<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown">
-				<span class="caret"></span>
-				<span class="sr-only">Toggle Dropdown</span>
-			</button>
-			<ul class="dropdown-menu" role="menu">
-				{{ if eq .Page "images" }}
-					{{ template "imagemenu" }}
-				{{ else if eq .Page "instances" }}
-					{{ template "instmenu" }}
-				{{ end }}
-			</ul>
-		</div>
+<div id="actions" style="display: none">
+	<div class="dropdown">
+		<button class="btn btn-primary dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown">
+			Action 
+			<span class="caret"></span>
+		</button>
+		<ul class="dropdown-menu" role="menu">
+			{{ if eq .Page "images" }}
+			{{ template "imagemenu" }}
+			{{ else if eq .Page "instances" }}
+			{{ template "instmenu" }}
+			{{ end }}
+		</ul>
 	</div>
-	<script>
-	window.jqReady.push(function() {
-		selections = {};
-		var table = $('.dataTable').dataTable({
-			//paging: false,
-			"dom": '<"row"<"col-md-6"l><"col-md-4"f><"col-md-2"<"topbar">>><"row"r><"row"t><"row"<"col-md-2"<"botbar">><"col-md-4"i><"col-md-6"p>>',
-		} );
+</div>
+<script>
+function showAlert(type, text) {
+	var notify = $("#notify");
+	var notifyText = $("#notifytext");
+	notify.addClass("alert-" + type);
+	notifyText.html(text);
+	notify.show();
+}
+function doAction(data,success, failure, complete) {
+	$.ajax({
+		"type": "POST",
+		"url": "/actions",
+		"dataType": "text",
+		"processData": false,
+		"async": false,
+		"data": JSON.stringify(data),
+		"error": failure,
+		"success": success,
+		"complete": complete
+	});
+}
+function getKeys(obj) {
+	keys = []
+	for(key in obj) {
+		keys.push(key)
+	}
+	return keys
+}
+function deleteServers() {
+	doAction({
+		"type": "instance",
+		"action": "delete",
+		"ids": getKeys(selections)
+	},function() {
+		showAlert("success","Success! Deleted " + getKeys(selections))
+	},function(x,stat,error) {
+		showAlert("danger",error + " when deleting " + getKeys(selections))
+	}, function() {
+		$('.dataTable').DataTable().row('.selected').remove().draw( false );
+	});
+}
+function startServers() {
+	doAction({
+		"type": "instance",
+		"action": "start",
+		"ids": getKeys(selections)
+	},function() {
+		showAlert("success","Success! Started " + getKeys(selections))
+	},function(x,stat,error) {
+		showAlert("danger",error + " when starting " + getKeys(selections))
+	}, function() {
+	});
+}
+function stopServers() {
+	doAction({
+		"type": "instance",
+		"action": "stop",
+		"ids": getKeys(selections)
+	},function() {
+		showAlert("success","Success! Stopped " + getKeys(selections))
+	},function(x,stat,error) {
+		showAlert("danger",error + " when stopping " + getKeys(selections))
+	}, function() {
+	});
+}
+function setupTable() {
+		table = $('.dataTable').dataTable({
+				//paging: false,
+				"destroy": true,
+				"dom": '<"row"<"col-md-6"l><"col-md-4"f><"col-md-2"<"topbar">>><"row"r><"row"t><"row"<"col-md-2"<"botbar">><"col-md-4"i><"col-md-6"p>>',
+				} );
+		table = table.DataTable();
 
 		var btn = $( "#actions" );
 
@@ -54,13 +122,31 @@
 		$("div.botbar div").addClass("dropup");
 
 		$('.dataTable tbody').on( 'click', 'tr', function () {
-			if($(this).hasClass('selected')) {
+				if($(this).hasClass('selected')) {
 				delete(selections[this.id]);
-			} else {
+				} else {
 				selections[this.id] = true;
-			}
-			$(this).toggleClass('selected');
-		} );
-	});
-	</script>
+				}
+				$(this).toggleClass('selected');
+				} );
+}
+function reloadTable() {
+	$("#data").load(document.URL + " #data");
+	setupTable();
+}
+window.jqReady.push(function() {
+		selections = {};
+		setupTable();
+		$(function(){
+			$("#notifyclose").on("click", function(){
+				$("#notify").hide();
+			});
+		});
+		$(".deleteAct").click(function() { deleteServers() });
+		$(".startAct").click(function() { startServers() });
+		$(".stopAct").click(function() { stopServers() });
+		//window.setInterval(reloadTable, 5000);
+});
+
+</script>
 {{ end }}
