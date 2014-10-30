@@ -4,6 +4,7 @@ import (
 	//"flag"
 	//"fmt"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/Pursuit92/cli"
@@ -32,7 +33,9 @@ var (
 			cli.StringOpt("key-name", "", "Keypair to use for the new instance"),
 			cli.BoolOpt("chef", true, "Enroll VM in chef"),
 			cli.StringOpt("image", "", "Image to boot")),
-		//cli.New("update", "Update a VM", nil),
+		cli.New("update", "Update a VM", updateVMs).
+			AddOpts(
+			cli.StringOpt("runlist", "", "Chef run-list")),
 		cli.New("delete", "Delete a VM", deleteVMs)}
 )
 
@@ -137,6 +140,42 @@ func bootVM(cmd *cli.Command) error {
 	if len(cmd.Args) < 1 {
 		return fmt.Errorf("Must supply instance name")
 	}
+	log.Print(runList)
 	_, err := conn.Create(cmd.Args[0], img, flav, key, net, enroll, strings.Split(runList, ","))
 	return err
+}
+
+func updateVMs(cmd *cli.Command) error {
+	start()
+	runList, _ := cmd.StringOpt("runlist")
+	srvs, err := conn.Servers()
+	if err != nil {
+		return err
+	}
+
+	for _, v := range cmd.Args {
+		arg := strings.ToLower(v)
+		for _, s := range srvs {
+			if arg == strings.ToLower(s.Nova.Name) ||
+				arg == strings.ToLower(s.Nova.Id) {
+				node, err := conn.ChefData(s.Nova)
+				if err != nil {
+					fmt.Printf("Error: %s\n", err.Error())
+					break
+				}
+				splitList := strings.Split(runList, ",")
+				if len(splitList) > 0 && splitList[0] == "" {
+					splitList = []string{}
+				}
+				log.Print(splitList)
+				node.RunList = splitList
+				_, err = conn.Chef.Nodes.Put(*node)
+				if err != nil {
+					return err
+				}
+
+			}
+		}
+	}
+	return nil
 }
