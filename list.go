@@ -2,14 +2,13 @@ package adnebulae
 
 import (
 	"fmt"
-	nova "github.com/Pursuit92/openstack-compute/v2"
-	"github.com/marpaia/chef-golang"
-	"strings"
 	"sync"
+
+	nova "github.com/Pursuit92/openstack-compute/v2"
 )
 
 func (an *AdNebulae) Servers() ([]*Server, error) {
-	insts, err := an.ServersDetail()
+	insts, err := an.Nova.ServersDetail()
 	if err != nil {
 		fmt.Print(err)
 		return nil, err
@@ -21,25 +20,7 @@ func (an *AdNebulae) Servers() ([]*Server, error) {
 		wg.Add(1)
 
 		go func(i int, v *nova.Server) {
-			var chefData *chef.Node
-			var chefOK bool
-			if chefID, ok := v.Metadata["chef-id"]; ok {
-				chefData, chefOK, err = an.GetNode(chefID)
-				if err != nil {
-					return
-				}
-			}
-			if !chefOK {
-				for _, w := range []string{v.Id, v.Name} {
-					chefData, chefOK, err = an.GetNode(strings.ToLower(w))
-					if err != nil {
-						return
-					}
-					if chefOK {
-						break
-					}
-				}
-			}
+			chefData, _ := an.ChefData(v)
 
 			srvs[i] = &Server{v, chefData}
 			wg.Done()

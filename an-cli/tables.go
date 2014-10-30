@@ -6,10 +6,10 @@ import (
 
 	"github.com/Pursuit92/adnebulae"
 	"github.com/Pursuit92/openstack-compute/v2"
-	"github.com/marpaia/chef-golang"
+	"github.com/go-chef/chef"
 )
 
-type cookbookTable map[string]*chef.Cookbook
+type cookbookTable chef.CookbookListResult
 
 func (c cookbookTable) Table() [][]string {
 	tab := make([][]string, 1)
@@ -21,7 +21,7 @@ func (c cookbookTable) Table() [][]string {
 		for i, w := range v.Versions {
 			vers[i] = w.Version
 		}
-		rec[1] = strings.Join(vers, ",")
+		rec[1] = strings.Join(vers, ", ")
 		tab = append(tab, rec)
 	}
 	return tab

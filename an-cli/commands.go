@@ -3,6 +3,9 @@ package main
 import (
 	//"flag"
 	//"fmt"
+	"fmt"
+	"strings"
+
 	"github.com/Pursuit92/cli"
 	//nova "github.com/Pursuit92/openstack-compute/v2"
 	pt "github.com/Pursuit92/prettytables"
@@ -21,14 +24,20 @@ var (
 			cli.New("flavors", "List available Flavors", listFlavors),
 			cli.New("roles", "List available Roles", listRoles),
 			cli.New("cookbooks", "List available Cookbooks", listCookbooks)),
-		cli.New("boot", "Create a new VM", nil).
+		cli.New("boot", "Create a new VM", bootVM).
 			AddOpts(
-			cli.IntOpt("demo", 5, "just a placeholder")),
-		cli.New("update", "Update a VM", nil),
-		cli.New("delete", "Delete a VM", nil)}
+			cli.StringOpt("net", "", "Network for the new VM"),
+			cli.StringOpt("flavor", "", "New VM size"),
+			cli.StringOpt("runlist", "", "Chef run-list"),
+			cli.StringOpt("key-name", "", "Keypair to use for the new instance"),
+			cli.BoolOpt("chef", true, "Enroll VM in chef"),
+			cli.StringOpt("image", "", "Image to boot")),
+		//cli.New("update", "Update a VM", nil),
+		cli.New("delete", "Delete a VM", deleteVMs)}
 )
 
 func listVMs(cmd *cli.Command) error {
+	start()
 	srvs, err := conn.Servers()
 	if err != nil {
 		return err
@@ -40,7 +49,8 @@ func listVMs(cmd *cli.Command) error {
 }
 
 func listImages(cmd *cli.Command) error {
-	imgs, err := conn.Images()
+	start()
+	imgs, err := conn.Nova.Images()
 	if err != nil {
 		return err
 	}
@@ -51,7 +61,8 @@ func listImages(cmd *cli.Command) error {
 }
 
 func listNets(cmd *cli.Command) error {
-	nets, err := conn.Networks()
+	start()
+	nets, err := conn.Nova.Networks()
 	if err != nil {
 		return err
 	}
@@ -62,7 +73,8 @@ func listNets(cmd *cli.Command) error {
 }
 
 func listFlavors(cmd *cli.Command) error {
-	flavs, err := conn.FlavorsDetail()
+	start()
+	flavs, err := conn.Nova.FlavorsDetail()
 	if err != nil {
 		return err
 	}
@@ -73,14 +85,15 @@ func listFlavors(cmd *cli.Command) error {
 }
 
 func listRoles(cmd *cli.Command) error {
-	roles, err := conn.GetRoles()
+	start()
+	roles, err := conn.Chef.Roles.List()
 	if err != nil {
 		return err
 	}
 
 	rolesTable := make([][]string, 1)
 	rolesTable[0] = []string{"Role Name"}
-	for k, _ := range roles {
+	for k, _ := range *roles {
 		rolesTable = append(rolesTable, []string{k})
 	}
 
@@ -90,7 +103,8 @@ func listRoles(cmd *cli.Command) error {
 }
 
 func listCookbooks(cmd *cli.Command) error {
-	cbooks, err := conn.GetCookbooks()
+	start()
+	cbooks, err := conn.Chef.Cookbooks.List()
 	if err != nil {
 		return err
 	}
@@ -98,4 +112,31 @@ func listCookbooks(cmd *cli.Command) error {
 	pt.PrintTable(cookbookTable(cbooks))
 
 	return nil
+}
+
+func deleteVMs(cmd *cli.Command) error {
+	start()
+	for _, v := range cmd.Args {
+		err := conn.Delete(v)
+		if err != nil {
+			fmt.Println("Delete Error:", err)
+		}
+
+	}
+	return nil
+}
+
+func bootVM(cmd *cli.Command) error {
+	start()
+	flav, _ := cmd.StringOpt("flavor")
+	img, _ := cmd.StringOpt("image")
+	net, _ := cmd.StringOpt("net")
+	key, _ := cmd.StringOpt("key-name")
+	enroll, _ := cmd.BoolOpt("chef")
+	runList, _ := cmd.StringOpt("runlist")
+	if len(cmd.Args) < 1 {
+		return fmt.Errorf("Must supply instance name")
+	}
+	_, err := conn.Create(cmd.Args[0], img, flav, key, net, enroll, strings.Split(runList, ","))
+	return err
 }

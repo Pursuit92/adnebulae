@@ -2,7 +2,7 @@ package adnebulae
 
 import (
 	nova "github.com/Pursuit92/openstack-compute/v2"
-	"github.com/marpaia/chef-golang"
+	"github.com/go-chef/chef"
 )
 
 type Server struct {

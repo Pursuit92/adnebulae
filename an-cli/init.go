@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/Pursuit92/adnebulae"
 	"os"
+
+	"github.com/Pursuit92/adnebulae"
 )
 
 var conn *adnebulae.AdNebulae
 
-func init() {
+func start() {
 	var err error
 	conn, err = adnebulae.New()
 	if err != nil {

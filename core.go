@@ -1,18 +1,21 @@
 package adnebulae
 
 import (
-	nova "github.com/Pursuit92/openstack-compute/v2"
-	"github.com/marpaia/chef-golang"
+	"io/ioutil"
 	"os"
+
+	nova "github.com/Pursuit92/openstack-compute/v2"
+	"github.com/go-chef/chef"
 )
 
 type AdNebulae struct {
-	*nova.ComputeClient
-	*chef.Chef
+	Nova      *nova.ComputeClient
+	Chef      *chef.Client
+	Validator string
 }
 
 var (
-	cfgVars = []string{"OS_AUTH_URL", "OS_TENANT_NAME", "OS_USERNAME", "OS_PASSWORD", "CHEF_CFG"}
+	cfgVars = []string{"OS_AUTH_URL", "OS_TENANT_NAME", "OS_USERNAME", "OS_PASSWORD", "CHEF_ENDPOINT", "CHEF_USERNAME", "CHEF_KEY_FILE", "CHEF_VALIDATOR"}
 )
 
 func cfgFromEnv() map[string]string {
@@ -25,7 +28,7 @@ func cfgFromEnv() map[string]string {
 
 func New() (*AdNebulae, error) {
 	var osClient *nova.ComputeClient
-	var chefClient *chef.Chef
+	var chefClient *chef.Client
 	var err error
 	cfg := cfgFromEnv()
 	osClient, err = nova.NewClient(cfg["OS_AUTH_URL"])
@@ -40,12 +43,21 @@ func New() (*AdNebulae, error) {
 		return nil, err
 	}
 
-	chefClient, err = chef.Connect(cfg["CHEF_CFG"])
+	chefKey, err := ioutil.ReadFile(cfg["CHEF_KEY_FILE"])
 	if err != nil {
 		return nil, err
 	}
-	chefClient.SSLNoVerify = true
 
-	return &AdNebulae{osClient, chefClient}, err
+	chefClient, err = chef.NewClient(&chef.Config{
+		Name:    cfg["CHEF_USERNAME"],
+		BaseURL: cfg["CHEF_ENDPOINT"],
+		Key:     string(chefKey),
+		SkipSSL: true})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &AdNebulae{osClient, chefClient, cfg["CHEF_VALIDATOR"]}, err
 
 }

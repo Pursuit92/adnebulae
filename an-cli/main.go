@@ -1,9 +1,16 @@
 package main
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 func main() {
 	cli := NewCLI()
 	cli.Subs(AnCliCommands...)
-	cli.Run(os.Args)
+	err := cli.Run(os.Args)
+	if err != nil {
+		fmt.Println(err)
+	}
+
 }
