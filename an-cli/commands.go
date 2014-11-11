@@ -9,7 +9,7 @@ import (
 
 	"github.com/Pursuit92/cli"
 	"github.com/Pursuit92/openstack-compute/v2"
-	"github.com/go-chef/chef"
+	"github.com/Pursuit92/chef"
 	//nova "github.com/Pursuit92/openstack-compute/v2"
 	pt "github.com/Pursuit92/prettytables"
 	//"github.com/marpaia/chef-golang"

@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/Pursuit92/openstack-compute/v2"
-	"github.com/go-chef/chef"
+	"github.com/Pursuit92/chef"
 )
 
 func (an *AdNebulae) ChefData(srv *nova.Server) (*chef.Node, error) {

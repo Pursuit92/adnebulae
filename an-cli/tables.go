@@ -7,7 +7,7 @@ import (
 
 	"github.com/Pursuit92/adnebulae"
 	"github.com/Pursuit92/openstack-compute/v2"
-	"github.com/go-chef/chef"
+	"github.com/Pursuit92/chef"
 )
 
 type cookbooksTable chef.CookbookListResult
