@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -9,9 +10,9 @@ import (
 	"github.com/go-chef/chef"
 )
 
-type cookbookTable chef.CookbookListResult
+type cookbooksTable chef.CookbookListResult
 
-func (c cookbookTable) Table() [][]string {
+func (c cookbooksTable) Table() [][]string {
 	tab := make([][]string, 1)
 	tab[0] = []string{"Name", "Versions"}
 	for k, v := range c {
@@ -21,7 +22,7 @@ func (c cookbookTable) Table() [][]string {
 		for i, w := range v.Versions {
 			vers[i] = w.Version
 		}
-		rec[1] = strings.Join(vers, ", ")
+		rec[1] = strings.Join(vers, "\n")
 		tab = append(tab, rec)
 	}
 	return tab
@@ -97,5 +98,104 @@ func (s serverTable) Table() [][]string {
 		}
 		tab = append(tab, rec)
 	}
+	return tab
+}
+
+type vmTable adnebulae.Server
+
+func (vm vmTable) Table() [][]string {
+	tab := make([][]string, 1)
+	tab[0] = []string{"Property", "Value"}
+	addProp := func(p, v string) {
+		tab = append(tab, []string{p, v})
+	}
+	var addrs []string
+	for k, a := range vm.Nova.Addresses {
+		ips := []string{}
+		for _, ip := range a {
+			ips = append(ips, ip.Addr)
+		}
+		addrs = append(addrs, fmt.Sprintf("%s=%s", k, strings.Join(ips, ",")))
+	}
+	addProp("Name", vm.Nova.Name)
+	addProp("Network", strings.Join(addrs, ";"))
+	addProp("Flavor", vm.Nova.Flavor.Name)
+	addProp("Image", vm.Nova.Image.Name)
+	addProp("Created", vm.Nova.Created)
+	addProp("Updated", vm.Nova.Updated)
+	addProp("Status", vm.Nova.Status)
+	addProp("Id", vm.Nova.Id)
+	addProp("TenantId", vm.Nova.TenantId)
+	if vm.Chef.Name != "" {
+		addProp("Environment", vm.Chef.Environment)
+		addProp("RunList", strings.Join(vm.Chef.RunList, ",\n"))
+		if _, ok := vm.Chef.AutomaticAttributes["platform"]; ok {
+			addProp("Platform", vm.Chef.AutomaticAttributes["platform"].(string)+" "+vm.Chef.AutomaticAttributes["platform_version"].(string))
+		}
+		normal, _ := json.MarshalIndent(vm.Chef.NormalAttributes, "", "  ")
+		addProp("Attributes", string(normal))
+	}
+	return tab
+}
+
+type environmentTable chef.Environment
+
+func (rt environmentTable) Table() [][]string {
+	tab := make([][]string, 0)
+	addProp := func(p, v string) {
+		tab = append(tab, []string{p, v})
+	}
+	addProp("Property", "Value")
+	addProp("Name", rt.Name)
+	addProp("Desc", rt.Description)
+	def, _ := json.MarshalIndent(rt.DefaultAttributes, "", "  ")
+	override, _ := json.MarshalIndent(rt.OverrideAttributes, "", "  ")
+	addProp("Default", string(def))
+	addProp("Override", string(override))
+	books, _ := json.MarshalIndent(rt.CookbookVersions, "", "  ")
+	addProp("Cookbooks", string(books))
+	return tab
+}
+
+type roleTable chef.Role
+
+func (rt roleTable) Table() [][]string {
+	tab := make([][]string, 0)
+	addProp := func(p, v string) {
+		tab = append(tab, []string{p, v})
+	}
+	addProp("Property", "Value")
+	addProp("Name", rt.Name)
+	addProp("Desc", rt.Description)
+	addProp("RunList", strings.Join(rt.RunList, ",\n"))
+	def, _ := json.MarshalIndent(rt.DefaultAttributes, "", "  ")
+	override, _ := json.MarshalIndent(rt.OverrideAttributes, "", "  ")
+	addProp("Default", string(def))
+	addProp("Override", string(override))
+	return tab
+}
+
+type cookbookTable chef.Cookbook
+
+func collectName(is []chef.CookbookItem) string {
+	var names string
+	for _, v := range is {
+		if len(names) > 0 {
+			names = fmt.Sprintf("%s\n%s", names, v.Name)
+		} else {
+			names = v.Name
+		}
+	}
+	return names
+}
+
+func (ct cookbookTable) Table() [][]string {
+	tab := make([][]string, 0)
+	addProp := func(p, v string) {
+		tab = append(tab, []string{p, v})
+	}
+	addProp("Property", "Value")
+	addProp("Name", ct.Name)
+	addProp("Recipes", collectName(ct.Recipes))
 	return tab
 }
