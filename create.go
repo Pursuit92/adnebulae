@@ -50,7 +50,7 @@ func (an *AdNebulae) Create(name, img, flav, key, net string, enroll bool, runLi
 	srv.Flavor = &nova.Flavor{Name: flav}
 	srv.NetNames = []string{net}
 	if enroll {
-		id := uuidgen()
+		id := Uuidgen()
 		firstBoot, _ := json.Marshal(map[string][]string{"run_list": runList})
 		validator, err := ioutil.ReadFile(an.Validator)
 		if err != nil {

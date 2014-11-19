@@ -1,20 +1,16 @@
 package main
 
 import (
-	//"flag"
-	//"fmt"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
+	"github.com/Pursuit92/chef"
 	"github.com/Pursuit92/cli"
 	"github.com/Pursuit92/openstack-compute/v2"
-	"github.com/Pursuit92/chef"
-	//nova "github.com/Pursuit92/openstack-compute/v2"
 	pt "github.com/Pursuit92/prettytables"
-	//"github.com/marpaia/chef-golang"
-	//"os"
-	//"strings"
 )
 
 var (
@@ -46,7 +42,10 @@ var (
 			cli.New("cookbook", "Show cookbook info", showCookbook),
 			cli.New("vm", "Show info about VM", showVM),
 			cli.New("role", "Show info about Roles", showRole)),
-		cli.New("delete", "Delete a VM", deleteVMs)}
+		cli.New("delete", "Delete a VM", deleteVMs),
+		cli.New("edit", "Edit nodes and roles", editNode).
+			Subs(
+			cli.New("role", "Edit role", editRole))}
 )
 
 func listEnvironments(cmd *cli.Command) error {
@@ -230,27 +229,31 @@ func showVM(cmd *cli.Command) error {
 		cmd.PrintHelp(err)
 		return err
 	}
-	idName := strings.ToLower(cmd.Args[0])
-	srvs, err := conn.Servers()
+	srv, err := conn.Server(cmd.Args[0])
 	if err != nil {
 		return err
 	}
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
 
-	for _, v := range srvs {
-		if strings.ToLower(v.Nova.Id) == idName ||
-			strings.ToLower(v.Nova.Name) == idName {
-			v.Nova.Image, err = conn.Nova.ImageDetails(v.Nova.Image.Id)
-			if err != nil {
-				v.Nova.Image = &nova.Image{Name: "-"}
-			}
-			v.Nova.Flavor, err = conn.Nova.FlavorDetails(v.Nova.Flavor.Id)
-			if err != nil {
-				v.Nova.Flavor = &nova.Flavor{Name: "-"}
-			}
-
-			pt.PrintTable(vmTable(*v))
+	go func() {
+		srv.Nova.Image, err = conn.Nova.ImageDetails(srv.Nova.Image.Id)
+		if err != nil {
+			srv.Nova.Image = &nova.Image{Name: "-"}
 		}
-	}
+		wg.Done()
+	}()
+	go func() {
+		srv.Nova.Flavor, err = conn.Nova.FlavorDetails(srv.Nova.Flavor.Id)
+		if err != nil {
+			srv.Nova.Flavor = &nova.Flavor{Name: "-"}
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	pt.PrintTable(vmTable(*srv))
 	return nil
 }
 
@@ -339,4 +342,100 @@ func showEnvironment(cmd *cli.Command) error {
 	}
 
 	return nil
+}
+
+func editNode(cmd *cli.Command) error {
+	start()
+	if len(cmd.Args) < 1 {
+		return fmt.Errorf("Not enough arguments")
+	}
+	node, err := conn.Server(cmd.Args[0])
+	if err != err {
+		return err
+	}
+	if node.Chef == nil {
+		return fmt.Errorf("Not a chef node")
+	}
+
+	err = edit(node.Chef.Name, func() ([]byte, error) {
+		cont, err := json.MarshalIndent(node.Chef.NormalAttributes, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+
+		return cont, nil
+	}, func(cont []byte) error {
+		err = json.Unmarshal(cont, &node.Chef.NormalAttributes)
+		if err != nil {
+			return err
+		}
+
+		_, err = conn.Chef.Nodes.Put(*node.Chef)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Done editing %s!\n", cmd.Args[0])
+
+	return nil
+}
+
+func editRole(cmd *cli.Command) error {
+	start()
+	if len(cmd.Args) < 1 {
+		return fmt.Errorf("Not enough arguments")
+	}
+	roleName := strings.ToLower(cmd.Args[0])
+	roles, err := conn.Chef.Roles.List()
+	var role *chef.Role
+	if err != nil {
+		return err
+	}
+	for k, _ := range *roles {
+		if strings.ToLower(k) == roleName {
+			role, err = conn.Chef.Roles.Get(k)
+			if err != nil {
+				return err
+			}
+
+		}
+	}
+	if role == nil {
+		return fmt.Errorf("Role not found!")
+	}
+
+	err = edit(role.Name, func() ([]byte, error) {
+		cont, err := json.MarshalIndent(role, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+
+		return cont, nil
+	}, func(cont []byte) error {
+		err = json.Unmarshal(cont, role)
+		if err != nil {
+			return err
+		}
+
+		_, err = conn.Chef.Roles.Put(role)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Done editing %s!\n", cmd.Args[0])
+
+	return nil
+
 }

@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-func uuidgen() string {
+func Uuidgen() string {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
 	if err != nil {
