@@ -23,6 +23,7 @@ var (
 			cli.New("nets", "List available Networks", listNets),
 			cli.New("flavors", "List available Flavors", listFlavors),
 			cli.New("roles", "List available Roles", listRoles),
+			cli.New("databags", "List databags", listDBs),
 			cli.New("cookbooks", "List available Cookbooks", listCookbooks)),
 		cli.New("boot", "Create a new VM", bootVM).
 			AddOpts(
@@ -41,10 +42,13 @@ var (
 			cli.New("environment", "Show environment info", showEnvironment),
 			cli.New("cookbook", "Show cookbook info", showCookbook),
 			cli.New("vm", "Show info about VM", showVM),
+			cli.New("databag", "Show info about DataBags", showDB),
 			cli.New("role", "Show info about Roles", showRole)),
 		cli.New("delete", "Delete a VM", deleteVMs),
-		cli.New("edit", "Edit nodes and roles", editNode).
+		cli.New("edit", "Edit Chef data", editNode).
 			Subs(
+			cli.New("databag", "Edit databag", editDB),
+			cli.New("node", "Edit node", editNode),
 			cli.New("role", "Edit role", editRole))}
 )
 
@@ -435,6 +439,85 @@ func editRole(cmd *cli.Command) error {
 	}
 
 	fmt.Printf("Done editing %s!\n", cmd.Args[0])
+
+	return nil
+
+}
+
+func showDB(cmd *cli.Command) error {
+	start()
+	switch len(cmd.Args) {
+	case 1:
+		dbList, err := conn.Chef.DataBags.ListItems(cmd.Args[0])
+		if err != nil {
+			return err
+		}
+		pt.PrintTable(dbListTable(*dbList))
+
+	case 2:
+		dbInfo, err := conn.Chef.DataBags.GetItem(cmd.Args[0], cmd.Args[1])
+		if err != nil {
+			return err
+		}
+		pt.PrintTable(dbTable((interface{})(dbInfo).(map[string]interface{})))
+
+	default:
+		return fmt.Errorf("Incorrect number of arguments")
+	}
+	return nil
+}
+
+func listDBs(cmd *cli.Command) error {
+	start()
+	switch len(cmd.Args) {
+	case 0:
+		dbList, err := conn.Chef.DataBags.List()
+		if err != nil {
+			return err
+		}
+		pt.PrintTable(dbListTable(*dbList))
+
+	default:
+		return fmt.Errorf("Incorrect number of arguments")
+	}
+	return nil
+}
+
+func editDB(cmd *cli.Command) error {
+	start()
+	if len(cmd.Args) < 2 {
+		return fmt.Errorf("Not enough arguments")
+	}
+	dbItem, err := conn.Chef.DataBags.GetItem(cmd.Args[0], cmd.Args[1])
+	if err != nil {
+		return err
+	}
+
+	err = edit(cmd.Args[0]+"-"+cmd.Args[1], func() ([]byte, error) {
+		cont, err := json.MarshalIndent(dbItem, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+
+		return cont, nil
+	}, func(cont []byte) error {
+		err = json.Unmarshal(cont, &dbItem)
+		if err != nil {
+			return err
+		}
+
+		err = conn.Chef.DataBags.UpdateItem(cmd.Args[0], cmd.Args[1], dbItem)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Done editing %s %s!\n", cmd.Args[0], cmd.Args[1])
 
 	return nil
 

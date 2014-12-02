@@ -3,11 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/Pursuit92/adnebulae"
-	"github.com/Pursuit92/openstack-compute/v2"
 	"github.com/Pursuit92/chef"
+	"github.com/Pursuit92/openstack-compute/v2"
 )
 
 type cookbooksTable chef.CookbookListResult
@@ -197,5 +198,48 @@ func (ct cookbookTable) Table() [][]string {
 	addProp("Property", "Value")
 	addProp("Name", ct.Name)
 	addProp("Recipes", collectName(ct.Recipes))
+	return tab
+}
+
+type alpha []string
+
+func (a alpha) Len() int           { return len(a) }
+func (a alpha) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a alpha) Less(i, j int) bool { return a[i] < a[j] }
+
+type dbListTable map[string]string
+
+func (dblt dbListTable) Table() [][]string {
+	tab := make([][]string, len(dblt)+1)
+	for i, _ := range tab {
+		tab[i] = make([]string, 1)
+	}
+	tab[0][0] = "Name"
+	strs := make([]string, len(dblt))
+	i := 0
+	for k, _ := range dblt {
+		strs[i] = k
+		i++
+	}
+	sort.Sort(alpha(strs))
+	i = 1
+	for _, v := range strs {
+		tab[i][0] = v
+		i++
+	}
+	return tab
+
+}
+
+type dbTable map[string]interface{}
+
+func (dbt dbTable) Table() [][]string {
+	tab := make([][]string, 2)
+	for i, _ := range tab {
+		tab[i] = make([]string, 1)
+	}
+	tab[0][0] = "Data"
+	out, _ := json.MarshalIndent(dbt, "", "  ")
+	tab[1][0] = string(out)
 	return tab
 }
