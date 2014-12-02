@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 
@@ -170,7 +169,7 @@ func bootVM(cmd *cli.Command) error {
 	if len(cmd.Args) < 1 {
 		return fmt.Errorf("Must supply instance name")
 	}
-	log.Print(runList)
+	//log.Print(runList)
 	_, err := conn.Create(cmd.Args[0], img, flav, key, net, enroll, strings.Split(runList, ","))
 	if err != nil {
 		return err
