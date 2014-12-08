@@ -23,15 +23,19 @@ var (
 			cli.New("flavors", "List available Flavors", listFlavors),
 			cli.New("roles", "List available Roles", listRoles),
 			cli.New("databags", "List databags", listDBs),
+			cli.New("floating-ips", "List floating IPs", listFloating),
+			cli.New("floating-ip-pools", "List floating IP poolss", listFloatingPools),
 			cli.New("cookbooks", "List available Cookbooks", listCookbooks)),
-		cli.New("boot", "Create a new VM", bootVM).
+		cli.New("create", "Create a new VM", bootVM).
 			AddOpts(
 			cli.StringOpt("net", "", "Network for the new VM"),
 			cli.StringOpt("flavor", "", "New VM size"),
 			cli.StringOpt("runlist", "", "Chef run-list"),
 			cli.StringOpt("key-name", "", "Keypair to use for the new instance"),
 			cli.BoolOpt("chef", true, "Enroll VM in chef"),
-			cli.StringOpt("image", "", "Image to boot")),
+			cli.StringOpt("image", "", "Image to boot")).
+			Subs(
+			cli.New("floating-ip", "Create a new floating ip", createFloating)),
 		cli.New("update", "Update a VM", updateVMs).
 			AddOpts(
 			cli.StringOpt("environment", "", "Chef environment"),
@@ -43,7 +47,13 @@ var (
 			cli.New("vm", "Show info about VM", showVM),
 			cli.New("databag", "Show info about DataBags", showDB),
 			cli.New("role", "Show info about Roles", showRole)),
-		cli.New("delete", "Delete a VM", deleteVMs),
+		cli.New("delete", "Delete a VM", deleteVMs).
+			Subs(
+			cli.New("floating-ip", "Delete a floating IP", deleteFloating)),
+		cli.New("floating-ip", "Floating IP Management", cli.HelpOnly).
+			Subs(
+			cli.New("add", "Add a floating IP to a server", addFloating),
+			cli.New("remove", "Remove a floating IP from a server", removeFloating)),
 		cli.New("edit", "Edit Chef data", editNode).
 			Subs(
 			cli.New("databag", "Edit databag", editDB),
@@ -520,4 +530,63 @@ func editDB(cmd *cli.Command) error {
 
 	return nil
 
+}
+
+func listFloating(cmd *cli.Command) error {
+	start()
+	ips, err := conn.Nova.FloatingIPs()
+	if err != nil {
+		return err
+	}
+
+	pt.PrintTable(floatingList(ips))
+
+	return nil
+}
+func listFloatingPools(cmd *cli.Command) error {
+	start()
+	pools, err := conn.Nova.FloatingIPPools()
+	if err != nil {
+		return err
+	}
+
+	pt.PrintTable(poolTable(pools))
+
+	return nil
+}
+func createFloating(cmd *cli.Command) error {
+	start()
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("Incorrect number of arguments")
+	}
+	ip, err := conn.Nova.CreateFloatingIP(cmd.Args[0])
+	if err != nil {
+		return err
+	}
+
+	pt.PrintTable(floatingTable(*ip))
+
+	return nil
+}
+func deleteFloating(cmd *cli.Command) error {
+	start()
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("Incorrect number of arguments")
+	}
+	return conn.Nova.DeleteFloatingIP(cmd.Args[0])
+}
+
+func addFloating(cmd *cli.Command) error {
+	start()
+	if len(cmd.Args) != 2 {
+		return fmt.Errorf("Incorrect number of arguments, need server and IP")
+	}
+	return conn.Nova.AddFloatingIP(cmd.Args[0], cmd.Args[1])
+}
+func removeFloating(cmd *cli.Command) error {
+	start()
+	if len(cmd.Args) != 2 {
+		return fmt.Errorf("Incorrect number of arguments, need server and IP")
+	}
+	return conn.Nova.RemoveFloatingIP(cmd.Args[0], cmd.Args[1])
 }

@@ -12,6 +12,7 @@ import (
 )
 
 const chefClientTmpl string = `chef_server_url "{{ .Server }}"
+ssl_verify_mode :verify_none
 validation_client_name "chef-validator"
 node_name "{{ .Id }}"
 `

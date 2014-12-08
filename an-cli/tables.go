@@ -243,3 +243,47 @@ func (dbt dbTable) Table() [][]string {
 	tab[1][0] = string(out)
 	return tab
 }
+
+type floatingList []*nova.FloatingIP
+
+func (fl floatingList) Table() [][]string {
+	tab := make([][]string, 0)
+	addRow := func(a, b, c, d, e string) {
+		tab = append(tab, []string{a, b, c, d, e})
+	}
+	addRow("ID", "Instance ID", "Fixed IP", "Floating IP", "Pool")
+	for _, v := range fl {
+		addRow(v.Id, v.InstanceId, v.FixedIP, v.IP, v.Pool)
+	}
+	return tab
+}
+
+type poolTable []*nova.FloatingIPPool
+
+func (fl poolTable) Table() [][]string {
+	tab := make([][]string, 0)
+	addProp := func(p string) {
+		tab = append(tab, []string{p})
+	}
+	addProp("Pools")
+	for _, v := range fl {
+		addProp(v.Name)
+	}
+	return tab
+}
+
+type floatingTable nova.FloatingIP
+
+func (fl floatingTable) Table() [][]string {
+	tab := make([][]string, 0)
+	addProp := func(p, v string) {
+		tab = append(tab, []string{p, v})
+	}
+	addProp("Property", "Value")
+	addProp("Fixed IP", fl.FixedIP)
+	addProp("ID", fl.Id)
+	addProp("Instance ID", fl.InstanceId)
+	addProp("IP", fl.IP)
+	addProp("Pool", fl.Pool)
+	return tab
+}
