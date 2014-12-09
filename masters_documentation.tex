@@ -1,0 +1,424 @@
+\documentclass[11pt]{article}
+
+\usepackage{listings}
+\usepackage{color}
+%\usepackage[parfill]{parskip}
+\usepackage{listings}
+\usepackage{url}
+\definecolor{mygreen}{rgb}{0,0.4,0}
+\lstset{ %
+frame=single,           % adds a frame around the code
+basicstyle=\footnotesize\ttfamily,       % the size of the fonts that are used for the code
+backgroundcolor=\color{white},  % choose the background color. You must add \usepackage{color}
+commentstyle=\color{mygreen},
+language=Bash,
+stringstyle=\color{blue},
+keywordstyle=\color{red},
+showspaces=false,               % show spaces adding particular underscores
+showstringspaces=false,         % underline spaces within strings
+showtabs=false,                 % show tabs within strings adding particular underscores
+tabsize=2,          % sets default tabsize to 2 spaces
+captionpos=b,           % sets the caption-position to bottom
+breaklines=true,        % sets automatic line breaking
+breakatwhitespace=false,    % sets if automatic breaks should only happen at whitespace
+escapeinside={\%*}{*)}          % if you want to add a comment within your code
+}
+
+\title{\textbf{AdNebulae}\\Cloud Management System}
+\author{Josh Chase}
+
+\begin{document}
+\maketitle
+\pagebreak
+
+\newcommand\aN{\textit{AdNebulae} }
+\newcommand\GOPATH{\$GOPATH}
+\newcommand\PATH{\$PATH}
+\newcommand\HOME{\$HOME}
+
+\begin{abstract}
+    Virtual machine provisioning and configuration have historically
+    been separate, unrelated processes. Tools and services such as
+    Openstack, Eucalyptus, and Amazon EC2 serve to abstract away
+    hardware for the user while tools like Chef, Puppet, Ansible, and
+    Salt abstract away the operating system. This separation of
+    processes can, at best, pose a minor annoyance to administrators who
+    are required to perform additional steps to fully provision a
+    virtual machine. At worst, they can lead to inconsistencies and
+    errors which can create outages at inopportune times. \aN was
+    created to unify the two processes and provide a single utility
+    responsible for virtual machine creation and configuration by
+    integrating the Openstack and Chef APIs
+\end{abstract}
+
+\begin{tableofcontents}
+\end{tableofcontents}
+
+\pagebreak
+
+\section{Installation}
+
+\aN is written in Go, and, as such, only requires that the Go compiler
+and git be installed in order to build it from source. This can be
+accomplished in one command. Ensure that the \texttt{\GOPATH}
+environment variable is set and run the following:
+
+\begin{lstlisting}
+# Set necessary environment variables
+$ export GOPATH=$HOME/Go
+$ export PATH=$GOPATH/bin:$PATH
+# Install the AdNebulae CLI
+$ go get github.com/Pursuit92/adnebulae/an-cli
+\end{lstlisting}
+
+This will install the \texttt{an-cli} binary to
+\texttt{\GOPATH/bin/an-cli}. As long as \texttt{\GOPATH/bin} is in your
+\texttt{\PATH} variable, you'll be able to run the command-line
+interface to \aN like any other command.
+
+\begin{lstlisting}
+$ an-cli helpfull
+Adnebulae CLI: Manage Openstack instances along with their configurations
+
+Commands:
+  create                Create a new VM
+    floating-ip         Create a new floating ip
+  delete                Delete a VM
+    floating-ip         Delete a floating IP
+  edit                  Edit Chef data
+    databag             Edit databag
+    node                Edit node
+    role                Edit role
+  floating-ip           Floating IP Management
+    add                 Add a floating IP to a server
+    remove              Remove a floating IP from a server
+  helpfull              Show all commands
+  list                  List VMs
+    cookbooks           List available Cookbooks
+    databags            List databags
+    environments        List available environments
+    flavors             List available Flavors
+    floating-ip-pools   List floating IP poolss
+    floating-ips        List floating IPs
+    images              List available Images
+    nets                List available Networks
+  ...
+\end{lstlisting}
+
+\section{Configuration}
+
+\aN is configured solely using environment variables, so the actual
+configuration will be platform-dependent. The following variables must
+be set for \aN to run:
+
+\begin{description}
+\item[\texttt{OS\_TENANT\_NAME}] Name of the Openstack Tenant to use for authentication
+\item[\texttt{OS\_USERNAME}] Openstack Username
+\item[\texttt{OS\_PASSWORD}] Openstack Password
+\item[\texttt{CHEF\_ENDPOINT}] URL of the Chef server
+\item[\texttt{CHEF\_VALIDATOR}] Path to the Chef Validator private key
+\item[\texttt{CHEF\_USERNAME}] Chef Username
+\item[\texttt{CHEF\_KEY\_FILE}] Path to the private key for Chef authentication
+\end{description}
+
+On a UNIX or Linux system, these variables would usually be set from the
+\texttt{\HOME/.bashrc} file.
+
+\begin{lstlisting}
+export OS_TENANT_NAME=demo
+export OS_USERNAME=demo
+export OS_PASSWORD=demo
+export CHEF_ENDPOINT=https://216.249.138.190:443
+export CHEF_VALIDATOR=/home/josh/chef/.chef/chef-validator.pem
+export CHEF_USERNAME=josh
+export CHEF_KEY_FILE=/home/josh/chef/.chef/josh.pem
+\end{lstlisting}
+
+\pagebreak
+
+\section{Usage}
+
+\aN uses a simple command language to orchestrate the creation and
+configuration of VMs. Most of its subcommands have multiple subcommands
+themselves. With any partially complete command, the \texttt{-h} flag
+can be passed to return more information about how it can be completed.
+
+\begin{lstlisting}
+$ an-cli -h
+flag: help requested
+
+Usage: an-cli [OPTIONS] [COMMAND] [arg...]
+
+Adnebulae CLI: Manage Openstack instances along with their configurations
+
+Commands:
+  create        Create a new VM
+  delete        Delete a VM
+  edit          Edit Chef data
+  floating-ip   Floating IP Management
+  helpfull      Show all commands
+  list          List VMs
+  show          Show more info
+  update        Update a VM
+
+$ an-cli list -h
+flag: help requested
+
+Usage: an-cli list [OPTIONS] [COMMAND] [arg...]
+
+List VMs
+
+Commands:
+  cookbooks           List available Cookbooks
+  databags            List databags
+  environments        List available environments
+  flavors             List available Flavors
+  floating-ip-pools   List floating IP poolss
+  floating-ips        List floating IPs
+  images              List available Images
+  nets                List available Networks
+  roles               List available Roles
+  vms                 List VMs
+
+\end{lstlisting}
+
+\subsection{List}
+
+The \texttt{list} subcommand is used for, you guessed it, listing
+various items in either the Openstack environment or the Chef server. By
+default, it lists the VMs that belong to the current Openstack Tenant.
+
+\begin{lstlisting}
+# List Openstack VMs
+$ an-cli list vms
++----+------+--------+--------------------+-----------------...
+| Id | Name | Status | Networks           | Run List        ...
++----+------+--------+--------------------+-----------------...
+| ...| demo | ACTIVE | demo=10.0.0.2,21...| role[BASE],recip...
++----+------+--------+--------------------+-----------------...
+
+
+# List Chef Cokbooks
+$ an-cli list cookbooks
++---------------------+-------------------+
+| Name                | Versions          |
++---------------------+-------------------+
+| yum-mysql-community | 0.1.10            |
+| postfix-dovecot     | 0.2.0             |
+| yum-epel            | 0.4.0             |
+| mysql               | 5.4.3             |
+|                     | 5.4.0             |
+| dovecot             | 1.0.0             |
+| cron                | 1.4.0             |
+| iptables            | 0.13.2            |
+| postfixadmin        | 0.2.0             |
+| chef-sugar          | 2.2.0             |
+| bind                | 0.3.1             |
+|                     | 0.3.0             |
+| postfix             | 3.5.0             |
+| yum                 | 3.2.4             |
+  ...
+\end{lstlisting}
+
+As you can see from the VM listing, \aN attempts to unify information from both
+Chef and Openstack wherever possible in order to provide admins with the most
+complete picture possible.
+
+\subsection{Show}
+
+The \texttt{show} command is used to glean more information about a VM
+or Chef item. Like with \texttt{list}, it defaults to showing VM info.
+\pagebreak
+\begin{lstlisting}
+# Get information about a VM
+$ an-cli show demo
++-------------+--------------------------------------+
+| Property    | Value                                |
++-------------+--------------------------------------+
+| Name        | demo                                 |
+| Network     | demo=10.0.0.2,216.249.138.214        |
+| Flavor      | m1.small                             |
+| Image       | CentOS-6.5                           |
+| Created     | 2014-12-08T02:13:59Z                 |
+| Updated     | 2014-12-08T02:14:25Z                 |
+| Status      | ACTIVE                               |
+| Id          | 3f86df40-3b6b-4c8d-a952-b5e07b94b302 |
+| TenantId    | f4709df496f440db9aa587f9568f09f3     |
+| Environment | _default                             |
+| RunList     | role[BASE],                          |
+|             | recipe[bind]                         |
+| Platform    | centos 6.5                           |
+| Attributes  | {                                    |
+|             |   "tags": []                         |
+|             | }                                    |
++-------------+--------------------------------------+
+
+# Show the contents of a Chef Databag
+$ an-cli show databag zones jec_pw
++-------------------------------------------+
+| Data                                      |
++-------------------------------------------+
+| {                                         |
+|   "conf": {                               |
+|     "type": "master"                      |
+|   },                                      |
+|   "data": {                               |
+|     "aliases": {                          |
+|       "joshchase-frankfort.no-ip.org.": [ |
+|         "fort"                            |
+|       ]                                   |
+|     },                                    |
+|     "contact": "admin.jec.pw",            |
+|     "expire": "2w",                       |
+|     "generate": {},                       |
+|     "hosts": {                            |
+|       "mail": "216.249.138.192",          |
+|       "ns1": "216.249.138.191",           |
+|       "ns2": "216.249.138.191"            |
+  ...
+\end{lstlisting}
+
+\subsection{Create}
+
+The \texttt{create} command is where most of the \aN magic happens. It
+leverages both the Openstack and Chef APIs to start up a VM and enroll it in
+Chef in one fell swoop. Unlike the usual method of Chef enrollment, this
+process requires no external access to the VM. This way, a VM on an
+cloud-only private network, such as those given to each Openstack
+Tenant, can easily be managed by Chef.
+
+All but the desired name for the new VM are supplied using command-line
+flags. Of the flags, all but \texttt{key-name} and \texttt{runlist} are
+required.
+
+\begin{lstlisting}
+# VM creation options
+$ an-cli create -h
+flag: help requested
+
+Usage: an-cli create [OPTIONS] [COMMAND] [arg...]
+
+Create a new VM
+
+Options:
+  -chef=true: Enroll VM in chef
+  -flavor="": New VM size
+  -image="": Image to boot
+  -key-name="": Keypair to use for the new instance
+  -net="": Network for the new VM
+  -runlist="": Chef run-list
+
+# Create a demonstration VM
+$ an-cli create -net demo \
+                -flavor m1.small \
+                -image CentOS-6.5 \
+                -key-name josh-laptop \
+                -runlist role[BASE] \
+                test
++----------+--------------------------------------+
+| Property | Value                                |
++----------+--------------------------------------+
+| Name     | test                                 |
+| Network  |                                      |
+| Flavor   | m1.small                             |
+| Image    | CentOS-6.5                           |
+| Created  | 2014-12-09T02:31:28Z                 |
+| Updated  | 2014-12-09T02:31:29Z                 |
+| Status   | BUILD                                |
+| Id       | 057807f9-15d3-41ea-b2de-1510dfe4e56c |
+| TenantId | f4709df496f440db9aa587f9568f09f3     |
++----------+--------------------------------------+
+\end{lstlisting}
+
+The \texttt{create} command can also be used to allocate new
+floating-IPs in Openstack. It only requires the name of the pool from
+which to allocate the IP.
+
+\begin{lstlisting}
+# Allocate an IP from the "public" pool
+$ an-cli create floating-ip public
++-------------+--------------------------------------+
+| Property    | Value                                |
++-------------+--------------------------------------+
+| Fixed IP    |                                      |
+| ID          | 494da7df-6a01-488f-96bd-36a7fc99458f |
+| Instance ID |                                      |
+| IP          | 216.249.138.215                      |
+| Pool        | public                               |
++-------------+--------------------------------------+
+\end{lstlisting}
+
+\subsection{Delete}
+
+The \texttt{delete} subcommand is used for deleting VMs and
+floating-IPs. In the process of deleting VMs, it also cleans up the
+associated Chef nodes and clients if they exist.
+
+\begin{lstlisting}
+# Delete the VM named "test"
+$ an-cli delete test
+
+# Delete the floating-IP 216.249.138.215
+$ an-cli delete floating-ip 216.249.138.215
+\end{lstlisting}
+
+\subsection{Update}
+
+The \texttt{update} command is used to modify the Chef runlist or
+environment for a VM. It takes the new runlist and/or environment as
+flag arguments and the name or ID of the VM as a positional argument.
+
+\begin{lstlisting}
+$ an-cli update -runlist role[BASE],recipe[simplemail] demo
+\end{lstlisting}
+
+\subsection{Edit}
+
+The \texttt{edit} command is used to do complex editing of Chef objects
+- all of which are presented in JSON structures. Rather than modify them
+with a single command, the \texttt{edit} subcommand will open the data
+in whatever editor the \$EDITOR environment variable contains. If not
+set, the editor defaults to \texttt{vim}. If the data is modified and
+saved, it will be validated and uploaded to the Chef server after the
+editor exits.
+
+\begin{lstlisting}
+# Edit the configuration for the VM named "demo"
+$ an-cli edit node demo
+Creating new file /tmp/fb227a13-b843-4ab6-aa1a-a7a9e5889428.json
+File unmodified.
+Done editing demo!
+
+# Edit the Chef Databag item "jec_pw" in the "zones" bag
+$ an-cli edit databag zones jec_pw
+Creating new file /tmp/zones-jec_pw.json
+File unmodified.
+Done editing zones jec_pw!
+\end{lstlisting}
+
+\subsection{Floating-IP}
+
+Finally, the \texttt{floating-ip} subcommand allows allocated
+floating-ips to be added and removed from VMs to allow access to them
+from outside of their private networks. Both subcommands have identical
+arguments: the name of the server and the IP to be added/removed.
+
+\begin{lstlisting}
+# Add 216.249.138.214 to "demo"
+$ an-cli floating-ip add demo 216.249.138.214
+
+# Remove 216.249.138.214 from "demo"
+$ an-cli floating-ip remove demo 216.249.138.214
+\end{lstlisting}
+
+\section{Source and Attributions}
+
+The complete source of \aN can be found on GitHub under my account,
+Pursuit92, along with all of its supporting libraries.
+
+All of the supporting libraries except for the Chef API bindings (the
+credit for which goes to Jesse Nelson $<$spheromak@gmail.com$>$) and the Go
+standard library were written by me, Josh Chase
+$<$jcjoshuachase@gmail.com$>$ and are unlicensed unless otherwise stated.
+
+\end{document}
