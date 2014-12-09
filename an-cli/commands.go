@@ -30,8 +30,8 @@ var (
 			AddOpts(
 			cli.StringOpt("net", "", "Network for the new VM"),
 			cli.StringOpt("flavor", "", "New VM size"),
-			cli.StringOpt("runlist", "", "Chef run-list"),
-			cli.StringOpt("key-name", "", "Keypair to use for the new instance"),
+			cli.StringOpt("runlist", "", "Chef run-list (optional)"),
+			cli.StringOpt("key-name", "", "Keypair to use for the new instance (optional)"),
 			cli.BoolOpt("chef", true, "Enroll VM in chef"),
 			cli.StringOpt("image", "", "Image to boot")).
 			Subs(
