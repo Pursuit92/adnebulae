@@ -370,18 +370,26 @@ func editNode(cmd *cli.Command) error {
 		return fmt.Errorf("Not a chef node")
 	}
 
+	newNode := &chef.Node{
+		Environment:      node.Chef.Environment,
+		NormalAttributes: node.Chef.NormalAttributes,
+		RunList:          node.Chef.RunList}
+
 	err = edit(node.Chef.Name, func() ([]byte, error) {
-		cont, err := json.MarshalIndent(node.Chef.NormalAttributes, "", "  ")
+		cont, err := json.MarshalIndent(newNode, "", "  ")
 		if err != nil {
 			return nil, err
 		}
 
 		return cont, nil
 	}, func(cont []byte) error {
-		err = json.Unmarshal(cont, &node.Chef.NormalAttributes)
+		err = json.Unmarshal(cont, newNode)
 		if err != nil {
 			return err
 		}
+		node.Chef.Environment = newNode.Environment
+		node.Chef.NormalAttributes = newNode.NormalAttributes
+		node.Chef.RunList = newNode.RunList
 
 		_, err = conn.Chef.Nodes.Put(*node.Chef)
 		if err != nil {
